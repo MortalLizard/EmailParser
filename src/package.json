@@ -1,0 +1,15 @@
+{
+  "name": "format-feature",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "test": "tsc && node dist/main.js"
+  },
+  "devDependencies": {
+    "@types/moo": "^0.5.9",
+    "@types/node": "^22.5.1",
+    "typescript": "^5.1.6"
+  }
+}
