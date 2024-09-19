@@ -1,4 +1,3 @@
-Here’s a rewrite of your README.md file to fit the structured, detailed, and technical style of your coworker. The goal is to provide a clear explanation, break down processes, and offer practical examples.
 
 ---
 
