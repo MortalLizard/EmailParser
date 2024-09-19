@@ -157,4 +157,3 @@ This file parser simplifies the transformation of raw data into structured, read
 
 ---
 
-This rewrite emphasizes clarity, breaks down the process into individual components, and includes structured examples to illustrate the parser's functionality.
