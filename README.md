@@ -1,6 +1,9 @@
+
+---
+
 # Email Processing Pipeline Overview
 
-This document outlines the custom email processing pipeline used to format and simplify emails, particularly from Zendesk, for local ChatGPT processing. The service is designed to streamline email content by extracting key information, removing unnecessary data, and formatting the email content into a structured output suitable for further analysis.
+This document outlines the custom email processing pipeline used to format and simplify emails, particularly from Zendesk, for local ChatGPT processing. The service is designed to streamline email content by extracting key information and formatting it into a structured output for further analysis.
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -10,8 +13,6 @@ This document outlines the custom email processing pipeline used to format and s
     - [Parsing](#3-parsing)
     - [Rendering & Output](#4-rendering--output)
 3. [Streaming Data](#streaming-data)
-    - [Continuous Tokenization](#1-continuous-tokenization)
-    - [Incremental Parsing](#2-incremental-parsing)
 4. [Components](#components)
     - [Transformers](#transformers)
     - [Parsers](#parsers)
@@ -21,41 +22,35 @@ This document outlines the custom email processing pipeline used to format and s
 ---
 
 ## Introduction
-The email processing pipeline is designed to handle complex email formatting, extract meaningful components, and transform them into structured outputs. This service plays a critical role in simplifying Zendesk email content before it is processed by a local ChatGPT instance. By leveraging tokenization, parsing, and rendering techniques, the pipeline effectively turns messy, unstructured emails into readable, well-organized information.
+The email processing pipeline is designed to handle email formatting and extract specific elements from the content. This service plays a key role in simplifying Zendesk emails before processing them with a local ChatGPT instance.
 
 ---
 
 ## Dataflow Overview
-The email processing pipeline operates in distinct stages, turning raw email input into well-structured and formatted outputs.
+The email processing pipeline operates in distinct stages, turning raw email input into structured outputs.
 
 ### 1. Input
-The process starts with a raw email string. This email may contain unstructured or cluttered content, including unnecessary headers, signatures, and images. Below is an example of an unstructured email:
+The process starts with a raw email string, which may contain important details alongside unnecessary content. Below is an example of a typical email:
 
 ```
 Banana Joe, 31. aug. 2024 13.52 
 Hejsa
 jeg har købt et
 # Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid
-ved jer og det lader ikke rigtig op tror jeg den bliver ikke grøn med kun orange der er et billede af
-det, det kan god tænde og slukke men har stået nu i 9 timer og bliver ikke grøn.
-er det en bytter eller hvad ?
-### Ordre
+ved jer og det lader ikke rigtig op...
 Ordrenummer: 1413105
 Ordredato: 22/08 2024
-De andre lys virker fint
-
 Mvh *firstname
 ```
 
 ### 2. Tokenization
-The input string is passed to the custom lexer, which breaks it down into individual tokens. Each token represents a unit of meaning, such as words, punctuation, dates, and abbreviations. Here’s an example of the tokenized output:
+The input string is passed to a custom lexer, which breaks it down into specific patterns the system is designed to recognize. Each token represents a meaningful chunk, such as names, dates, or order information. Here's an example of tokenized output based on the patterns defined in the lexer:
 
 ```json
 [
     { "type": "name", "value": "Banana Joe", "text": "Banana Joe" },
     { "type": "date", "value": "31. aug. 2024", "text": "31. aug. 2024" },
     { "type": "greeting", "value": "Hejsa", "text": "Hejsa" },
-    { "type": "message", "value": "jeg har købt et...", "text": "jeg har købt et..." },
     { "type": "product", "value": "Sirius Sille Bloklys", "text": "# Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid" },
     { "type": "order_number", "value": "1413105", "text": "Ordrenummer: 1413105" },
     { "type": "order_date", "value": "22/08 2024", "text": "Ordredato: 22/08 2024" },
@@ -64,7 +59,7 @@ The input string is passed to the custom lexer, which breaks it down into indivi
 ```
 
 ### 3. Parsing
-Once the tokens are generated, the parser organizes them into meaningful structures. The parser identifies important email components such as product details, order numbers, and user messages.
+The parser extracts key data such as names, dates, and order details from the token stream. Here's an example of parsed output based on your existing parser logic:
 
 **Parsed Output:**
 ```json
@@ -72,7 +67,6 @@ Once the tokens are generated, the parser organizes them into meaningful structu
     "name": "Banana Joe",
     "date": "31. aug. 2024",
     "greeting": "Hejsa",
-    "message": "jeg har købt et Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid ved jer og det lader ikke rigtig op. Tror jeg, den bliver ikke grøn med kun orange...",
     "product": "Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid",
     "order_number": "1413105",
     "order_date": "22/08 2024",
@@ -81,42 +75,37 @@ Once the tokens are generated, the parser organizes them into meaningful structu
 ```
 
 ### 4. Rendering & Output
-The renderer takes the parsed data and converts it into a readable format, suitable for further use in applications like customer support systems or automated email responses.
+Currently, the system outputs the parsed data in a JSON-like structure. There is no detailed rendering (like HTML or styled formatting) built into the system at this stage. The output is intended for further processing or analysis in downstream systems, such as ChatGPT.
 
-**Formatted Output (HTML):**
-```html
-<p>Hejsa Banana Joe,</p>
-<p>Jeg har købt et <strong>Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid</strong> ved jer, og det lader ikke rigtig op. Det bliver kun orange og aldrig grøn.</p>
-<p>Ordrenummer: 1413105</p>
-<p>Ordredato: 22/08 2024</p>
-<p>De andre lys virker fint.</p>
-<p>Mvh,<br>*firstname</p>
+**Output Example:**
+```json
+{
+    "name": "Banana Joe",
+    "greeting": "Hejsa",
+    "product": "Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid",
+    "order_number": "1413105",
+    "order_date": "22/08 2024"
+}
 ```
 
 ---
 
 ## Streaming Data
-The pipeline supports processing email data in real-time, enabling it to handle large or incremental inputs. This is useful when working with emails that may arrive as streams or when dealing with large datasets.
-
-### 1. Continuous Tokenization
-The lexer processes incoming data as a continuous stream, generating tokens as data arrives. This allows for efficient processing of large or incomplete email inputs.
-
-### 2. Incremental Parsing
-The parser builds and updates its internal structure incrementally as tokens are generated. This ensures that the system can handle emails arriving in parts, and produce structured output as more tokens are processed.
+The current implementation processes emails as single complete inputs and does not yet support continuous or incremental processing.
 
 ---
 
 ## Components
 ### Transformers
-Transformers are used to convert the raw email input into a stream of tokens. A default transformer handles various lexers for words, dates, and numbers.
+Transformers convert raw email content into token streams. The lexer currently handles elements like names, dates, product details, and order numbers.
 
 ### Parsers
-The parser enforces grammatical and business rules to organize tokens into meaningful components. Custom grammars, defined using Nearley, enable the system to interpret complex email structures.
+The parser structures the tokenized data into a simplified format, focusing on extracting key elements like customer names, product information, and order details.
 
 ---
 
 ## Usage Examples
-Here's an example of how to use the email processing pipeline with a real-world email:
+Here’s an example of how to use the email processing pipeline:
 
 ```typescript
 const lexer = moo.compile({
@@ -150,4 +139,6 @@ console.log(parsedResult);
 ---
 
 ## Conclusion
-The email processing pipeline efficiently simplifies unstructured emails from Zendesk into structured, well-organized outputs. By utilizing tokenization, parsing, and rendering techniques, it ensures that even the most chaotic email content can be transformed into a readable and actionable format.
+The email processing pipeline simplifies emails by extracting key information such as names, dates, and order details. It converts raw, unstructured emails into a more structured format suitable for further analysis and processing in systems like ChatGPT.
+
+---
