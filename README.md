@@ -1,159 +1,153 @@
+# Email Processing Pipeline Overview
+
+This document outlines the custom email processing pipeline used to format and simplify emails, particularly from Zendesk, for local ChatGPT processing. The service is designed to streamline email content by extracting key information, removing unnecessary data, and formatting the email content into a structured output suitable for further analysis.
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Dataflow Overview](#dataflow-overview)
+    - [Input](#1-input)
+    - [Tokenization](#2-tokenization)
+    - [Parsing](#3-parsing)
+    - [Rendering & Output](#4-rendering--output)
+3. [Streaming Data](#streaming-data)
+    - [Continuous Tokenization](#1-continuous-tokenization)
+    - [Incremental Parsing](#2-incremental-parsing)
+4. [Components](#components)
+    - [Transformers](#transformers)
+    - [Parsers](#parsers)
+5. [Usage Examples](#usage-examples)
+6. [Conclusion](#conclusion)
 
 ---
 
-# Custom File Parser for Structured Data Processing
+## Introduction
+The email processing pipeline is designed to handle complex email formatting, extract meaningful components, and transform them into structured outputs. This service plays a critical role in simplifying Zendesk email content before it is processed by a local ChatGPT instance. By leveraging tokenization, parsing, and rendering techniques, the pipeline effectively turns messy, unstructured emails into readable, well-organized information.
 
-## Overview
+---
 
-This module provides a robust solution for parsing files into structured objects. Designed to handle various file types such as `.txt`, `.csv`, and `.json`, it converts raw file inputs into structured and readable data formats for further analysis or use in other applications.
+## Dataflow Overview
+The email processing pipeline operates in distinct stages, turning raw email input into well-structured and formatted outputs.
 
-The file parser is flexible, modular, and scalable, supporting multi-line and nested structures in the input data. It can process large data sets by leveraging streaming techniques, ensuring that memory usage is optimized during execution. The parser is implemented in a stepwise fashion, progressing through different stages, including reading, parsing, and output generation.
+### 1. Input
+The process starts with a raw email string. This email may contain unstructured or cluttered content, including unnecessary headers, signatures, and images. Below is an example of an unstructured email:
 
-## Components and Workflow
+```
+Banana Joe, 31. aug. 2024 13.52 
+Hejsa
+jeg har købt et
+# Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid
+ved jer og det lader ikke rigtig op tror jeg den bliver ikke grøn med kun orange der er et billede af
+det, det kan god tænde og slukke men har stået nu i 9 timer og bliver ikke grøn.
+er det en bytter eller hvad ?
+### Ordre
+Ordrenummer: 1413105
+Ordredato: 22/08 2024
+De andre lys virker fint
 
-### 1. Input Handling
-The parser accepts different file types as input, providing a flexible interface for data ingestion.
-
-#### Supported Input Types
-- `.txt`: Plain text files with simple or complex data structures.
-- `.csv`: Comma-separated values, parsed into structured key-value pairs.
-- `.json`: JSON files with arbitrary depth and complexity.
-
-The input files are read and processed into manageable data chunks using a combination of buffered reading and streaming techniques. This allows the parser to work efficiently with large files without requiring them to be loaded entirely into memory.
-
-### 2. Tokenization and Lexing
-Once the input file is read, the data is passed through a tokenization process. The lexer identifies tokens based on the structure of the file (e.g., fields, separators, line breaks).
-
-Example: Tokenization for a `.csv` file:
-
-Input:
-```csv
-Name, Age, Occupation
-John Doe, 29, Software Engineer
+Mvh *firstname
 ```
 
-Tokenized Output:
+### 2. Tokenization
+The input string is passed to the custom lexer, which breaks it down into individual tokens. Each token represents a unit of meaning, such as words, punctuation, dates, and abbreviations. Here’s an example of the tokenized output:
+
 ```json
 [
-    { "type": "header", "value": "Name" },
-    { "type": "separator", "value": "," },
-    { "type": "header", "value": "Age" },
-    { "type": "separator", "value": "," },
-    { "type": "header", "value": "Occupation" },
-    { "type": "linebreak", "value": "\n" },
-    { "type": "field", "value": "John Doe" },
-    { "type": "separator", "value": "," },
-    { "type": "field", "value": "29" },
-    { "type": "separator", "value": "," },
-    { "type": "field", "value": "Software Engineer" },
-    { "type": "linebreak", "value": "\n" }
+    { "type": "name", "value": "Banana Joe", "text": "Banana Joe" },
+    { "type": "date", "value": "31. aug. 2024", "text": "31. aug. 2024" },
+    { "type": "greeting", "value": "Hejsa", "text": "Hejsa" },
+    { "type": "message", "value": "jeg har købt et...", "text": "jeg har købt et..." },
+    { "type": "product", "value": "Sirius Sille Bloklys", "text": "# Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid" },
+    { "type": "order_number", "value": "1413105", "text": "Ordrenummer: 1413105" },
+    { "type": "order_date", "value": "22/08 2024", "text": "Ordredato: 22/08 2024" },
+    { "type": "signature", "value": "*firstname", "text": "Mvh *firstname" }
 ]
 ```
 
-### 3. Parsing and Validation
-The parsed tokens are validated to ensure they adhere to the expected structure. Depending on the input type, different parsing rules apply. For instance, a `.csv` file would expect consistent field separators and row structures, while a `.json` file would validate nested keys and values.
+### 3. Parsing
+Once the tokens are generated, the parser organizes them into meaningful structures. The parser identifies important email components such as product details, order numbers, and user messages.
 
-Parsed Output:
+**Parsed Output:**
 ```json
 {
-    "header": ["Name", "Age", "Occupation"],
-    "rows": [
-        { "Name": "John Doe", "Age": 29, "Occupation": "Software Engineer" }
-    ]
+    "name": "Banana Joe",
+    "date": "31. aug. 2024",
+    "greeting": "Hejsa",
+    "message": "jeg har købt et Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid ved jer og det lader ikke rigtig op. Tror jeg, den bliver ikke grøn med kun orange...",
+    "product": "Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid",
+    "order_number": "1413105",
+    "order_date": "22/08 2024",
+    "signature": "Mvh *firstname"
 }
 ```
 
-### 4. Data Transformation and Structuring
-Once the tokens are parsed and validated, they are transformed into structured objects. This includes creating key-value pairs, converting data into dictionaries, or generating nested objects for complex JSON data.
+### 4. Rendering & Output
+The renderer takes the parsed data and converts it into a readable format, suitable for further use in applications like customer support systems or automated email responses.
 
-For example, a `.json` file might be transformed as follows:
-
-Input:
-```json
-{
-  "person": {
-    "name": "John Doe",
-    "age": 29,
-    "occupation": "Software Engineer"
-  }
-}
+**Formatted Output (HTML):**
+```html
+<p>Hejsa Banana Joe,</p>
+<p>Jeg har købt et <strong>Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid</strong> ved jer, og det lader ikke rigtig op. Det bliver kun orange og aldrig grøn.</p>
+<p>Ordrenummer: 1413105</p>
+<p>Ordredato: 22/08 2024</p>
+<p>De andre lys virker fint.</p>
+<p>Mvh,<br>*firstname</p>
 ```
-
-Parsed and Structured Output:
-```json
-{
-  "person": {
-    "name": "John Doe",
-    "age": 29,
-    "occupation": "Software Engineer"
-  }
-}
-```
-
-### 5. Output Generation
-The final step in the pipeline is output generation. The parser generates structured data in the format needed for the next stage of the process. This could involve producing reports, exporting structured JSON data, or transforming the data for use in machine learning models or analytical processes.
-
-#### Supported Output Formats
-- JSON
-- CSV
-- Structured dictionaries or objects
-
-### 6. Streaming Data Processing
-The parser is designed to handle streaming input. For large files, the tokenization and parsing steps are performed incrementally to reduce memory overhead and support real-time data processing.
-
-### Example Usage
-
-The following example demonstrates how to use the file parser to process a `.csv` file.
-
-```javascript
-const { FileParser } = require('file-parser');
-
-// Create an instance of the parser
-const parser = new FileParser();
-
-// Define the path to the input file
-const filePath = 'path/to/your/file.csv';
-
-// Parse the file and output the structured data
-parser.parse(filePath)
-    .then((result) => {
-        console.log('Parsed Data:', result);
-    })
-    .catch((error) => {
-        console.error('Error parsing file:', error);
-    });
-```
-
-For streaming data:
-
-```javascript
-const { FileParser } = require('file-parser');
-
-// Create a stream to read large files in chunks
-const fileStream = fs.createReadStream('path/to/large/file.csv');
-
-// Pipe the file stream into the parser
-fileStream.pipe(parser.stream())
-    .on('data', (chunk) => {
-        console.log('Processed chunk:', chunk);
-    })
-    .on('end', () => {
-        console.log('File processing complete.');
-    })
-    .on('error', (error) => {
-        console.error('Error processing file stream:', error);
-    });
-```
-
-## Summary of Key Features
-
-- **Multi-format Support**: Processes `.txt`, `.csv`, and `.json` files.
-- **Streaming Capabilities**: Handles large files efficiently using streaming techniques.
-- **Tokenization and Parsing**: Converts raw input into structured objects.
-- **Validation**: Ensures the input data conforms to expected formats.
-- **Flexible Output**: Supports multiple output formats, including JSON and CSV.
-
-This file parser simplifies the transformation of raw data into structured, readable formats suitable for further processing and analysis.
 
 ---
 
+## Streaming Data
+The pipeline supports processing email data in real-time, enabling it to handle large or incremental inputs. This is useful when working with emails that may arrive as streams or when dealing with large datasets.
+
+### 1. Continuous Tokenization
+The lexer processes incoming data as a continuous stream, generating tokens as data arrives. This allows for efficient processing of large or incomplete email inputs.
+
+### 2. Incremental Parsing
+The parser builds and updates its internal structure incrementally as tokens are generated. This ensures that the system can handle emails arriving in parts, and produce structured output as more tokens are processed.
+
+---
+
+## Components
+### Transformers
+Transformers are used to convert the raw email input into a stream of tokens. A default transformer handles various lexers for words, dates, and numbers.
+
+### Parsers
+The parser enforces grammatical and business rules to organize tokens into meaningful components. Custom grammars, defined using Nearley, enable the system to interpret complex email structures.
+
+---
+
+## Usage Examples
+Here's an example of how to use the email processing pipeline with a real-world email:
+
+```typescript
+const lexer = moo.compile({
+  greeting: /Hejsa/,
+  name: /[A-Za-z]+\s[A-Za-z]+/,
+  date: /\d{2}\.\s\w+\.\s\d{4}/,
+  product: /#\s[A-Za-z\s]+/,
+  order_number: /Ordrenummer:\s\d+/,
+  order_date: /Ordredato:\s\d{2}\/\d{2}\s\d{4}/,
+  signature: /Mvh\s\*firstname/,
+  message: /[A-Za-z0-9\s.,?!]+/
+});
+
+const emailString = `
+Banana Joe, 31. aug. 2024 13.52 
+Hejsa
+jeg har købt et
+# Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid
+ved jer og det lader ikke rigtig op...
+Ordrenummer: 1413105
+Ordredato: 22/08 2024
+Mvh *firstname
+`;
+
+const tokenStream = lexer.reset(emailString);
+const parsedResult = parser.feed(tokenStream).finish();
+
+console.log(parsedResult);
+```
+
+---
+
+## Conclusion
+The email processing pipeline efficiently simplifies unstructured emails from Zendesk into structured, well-organized outputs. By utilizing tokenization, parsing, and rendering techniques, it ensures that even the most chaotic email content can be transformed into a readable and actionable format.
