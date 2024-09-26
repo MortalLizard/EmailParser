@@ -69,6 +69,7 @@ const detectSenderName = (text: string): string => {
   return "Unknown Sender";
 };
 
+// formatterService.ts
 const parseAndFormatText = (text: string): string => {
   const lexer = lexers.simple;
   const transformer = new StringToTokenTransformer(lexer);
@@ -82,26 +83,26 @@ const parseAndFormatText = (text: string): string => {
     return cleanAndFormatText(text);
   }
 
-  const parser = renderers.mail_reply;
-
+  const parser = renderers.mail_reply; // Ensure this is the right parser for your current grammar
   try {
+    // Feed tokens directly to the parser instead of text
     parser.feed(tokens);
     const parsedResult = parser.result;
-
-    console.log("Parsed Result:", parsedResult);
-
     return formatParsedResult(parsedResult);
   } catch (error) {
-    console.error("Error parsing email:", error);
+    console.error("Error parsing:", error);
     return cleanAndFormatText(text);
   }
 };
 
-function formatParsedResult(result: { greeting: string; name: string; body: Token[] }) {
-  let formatted = `Greeting: ${result.greeting}\nName: ${result.name}\nBody:\n`;
+
+
+function formatParsedResult(result: { body: Token[] }) {
+  let formatted = "Body:\n";
   result.body.forEach((token) => {
     formatted += `${token.value} `;
   });
+
   return formatted.trim();
 }
 

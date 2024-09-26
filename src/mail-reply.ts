@@ -6,39 +6,42 @@
 
 function id(d: any[]): any { return d[0]; }
 
-const linebreak = { test: (x: any) => x.type === "linebreak" };
-const whitespace = { test: (x: any) => x.type === "whitespace" };
-const float = { test: (x: any) => x.type === "float" };
-const integer = { test: (x: any) => x.type === "integer" };
-const ordinal_number = { test: (x: any) => x.type === "ordinal_number" };
-const punctuation = { test: (x: any) => x.type === "punctuation" };
-const abbreviation = { test: (x: any) => x.type === "abbreviation" };
-const word = { test: (x: any) => x.type === "word" };
-const symbol = { test: (x: any) => x.type === "symbol" };
-const greeting = { test: (x: any) => x.value.match(/hi|hello|hey|dear|hej|kære|godmorgen|godaften/i) };
+const whitespace = { test: (x: any) => x.type === "SPACE" }; // Ensure this matches lexer token
+const word = { test: (x: any) => x.type === "WORD" };
+const punctuation = { test: (x: any) => x.type === "PUNCTUATION" };
 
-// Remove leading whitespace tokens
 const remove_leading_whitespaces = (array: any[]) => {
     let i = 0;
-    while (i < array.length && array[i].type === "whitespace") {
+    while (i < array.length && array[i].type === "SPACE") {
         i++;
     }
     return array.slice(i);
-}
+};
+
+const wordOrNumber = { test: (x: any) => x.type === "WORD" || x.type === "NUMBER" };
 
 // Output object formatting
-const out = (d: any[]) => { 
+const out = (d: any[]) => {
+    console.log("Processing d array:", d);
+    
+    const name = d[0] && d[0].value ? d[0].value : null;
+    const body = Array.isArray(d) && d.length >= 3 && Array.isArray(d[2])
+        ? remove_leading_whitespaces(d[2])
+        : [];
+
+    console.log("Name:", name);
+    console.log("Body:", body);
+
     return {
-        greeting: d[0].value,
-        name: d[2],
-        body: remove_leading_whitespaces(d[4]),
-    }
+        name,
+        body,
+    };
 };
 
 interface NearleyToken {
   value: any;
   [key: string]: any;
-};
+}
 
 interface NearleyLexer {
   reset: (chunk: string, info: any) => void;
@@ -46,13 +49,13 @@ interface NearleyLexer {
   save: () => any;
   formatError: (token: never) => string;
   has: (tokenType: string) => boolean;
-};
+}
 
 interface NearleyRule {
   name: string;
   symbols: NearleySymbol[];
   postprocess?: (d: any[], loc?: number, reject?: {}) => any;
-};
+}
 
 type NearleySymbol = string | { literal: any } | { test: (token: any) => boolean };
 
@@ -60,16 +63,41 @@ interface Grammar {
   Lexer: NearleyLexer | undefined;
   ParserRules: NearleyRule[];
   ParserStart: string;
-};
+}
 
+// Updated grammar
 const grammar: Grammar = {
   Lexer: undefined,
   ParserRules: [
-    { name: "Mail_Reply", symbols: [greeting, whitespace, word, whitespace, { test: (x: any) => true }], postprocess: out },
-    { name: "whitespace", symbols: [whitespace], postprocess: (d: any[]) => d[0] },
-    { name: "greeting", symbols: [greeting], postprocess: (d: any[]) => d[0] }
+    {
+      name: "Mail_Reply",
+      symbols: [wordOrNumber, whitespace, "body"],
+      postprocess: out
+    },
+    {
+      name: "body",
+      symbols: [{ test: (x: any) => true }],
+      postprocess: (d: any[]) => remove_leading_whitespaces(d),
+    },
+    {
+      name: "start",
+      symbols: ["Mail_Reply"],
+      postprocess: id
+    },
+    { name: "whitespace", symbols: [{ test: (x: any) => x.type === "SPACE" }], postprocess: id },
+    { name: "word", symbols: [{ test: (x: any) => x.type === "WORD" }], postprocess: id },
+    { name: "number", symbols: [{ test: (x: any) => x.type === "NUMBER" }], postprocess: id },
+    {
+      name: "sentence",
+      symbols: ["word", "whitespace", "word"],
+      postprocess: (data) => data.join(" ")
+    },
+    {
+      name: "start",
+      symbols: ["sentence", punctuation],
+      postprocess: (data) => data.join(" ")
+    },
   ],
-  ParserStart: "Mail_Reply",
+  ParserStart: "start",
 };
-
 export default grammar;

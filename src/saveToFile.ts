@@ -1,19 +1,19 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-function saveToFile(filePath: string, content: any): void {
-  // Ensure the directory exists
-  if (!fs.existsSync(path.dirname(filePath))) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  }
-
-  // Convert content to string if it's not already
-  if (typeof content !== 'string' && !(content instanceof Uint8Array)) {
-    content = JSON.stringify(content);
-  }
-
-  // Write the content
-  fs.writeFileSync(filePath, content, 'utf-8');
+/** Utility function to ensure a directory exists */
+export function ensureDirectoryExists(dirPath: string): void {
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+    }
 }
 
-export { saveToFile };
+/** Save content to a file */
+export function saveToFile(filePath: string, content: string | Uint8Array): void {
+    ensureDirectoryExists(path.dirname(filePath));
+    if (typeof content !== 'string' && !(content instanceof Uint8Array)) {
+        content = JSON.stringify(content, null, 2);
+    }
+    fs.writeFileSync(filePath, content, 'utf-8');
+    console.log(`File saved at: ${filePath}`);
+}

@@ -14,3 +14,8 @@ export const saveToFile = (content: string, filename: string): void => {
   fs.writeFileSync(filePath, content, 'utf-8');
   console.log(`File saved at: ${filePath}`);
 };
+
+export const saveFormattedTextToFile = (content: string, filename: string): void => {
+    const filePath = path.join(__dirname, 'formattedEmails', filename);
+    saveToFile(filePath, content);
+};

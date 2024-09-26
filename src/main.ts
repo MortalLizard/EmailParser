@@ -1,5 +1,5 @@
-import { handleIncomingEmail } from '../src/emailProcessor';
-import { saveToFile } from '../src/fileService';
+import { handleIncomingEmail } from './emailProcessor';
+import { saveToFile } from './fileService';
 
 const rawEmailText =  `
 Denne besked er sendt fra Peter Plass Jensen, 31. aug. 2024 13.52
