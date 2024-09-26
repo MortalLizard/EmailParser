@@ -1,101 +1,108 @@
-import nearley from "nearley";
-import moo, { Token as MooToken } from "moo";
-import { cleanAndFormatText } from './formatterService';
+import nearley from "nearley"; 
+import moo, { Token as MooToken } from "moo"; 
+import { cleanAndFormatText } from './formatterService'; 
+import mailReplyGrammar from "./mail-reply"; 
+import { handleIncomingEmail } from "./emailProcessor"; 
+import { saveToFile } from "./fileService"; 
 
-/** Renders the output of a parser. */
+
 export class Renderer<T = any> {
     constructor(private parser: nearley.Parser) {}
 
+    /**
+     * Feeds tokens into the parser for processing.
+     *
+     * @param {MooToken[]} tokens - An array of tokens to be fed into the parser.
+     * @returns {Renderer} - The Renderer instance for method chaining.
+     */
     feed(tokens: MooToken[]) {
         try {
-            console.log("Feeding tokens to parser:", tokens);
-            this.parser.feed(tokens as any);
+            console.log("Feeding tokens to parser:", tokens); // Log tokens being fed
+            this.parser.feed(tokens as any); // Feed tokens into the parser
         } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error.";
-            console.error("Error feeding tokens:", message);
+            console.error("Error feeding tokens:", message); 
             console.warn("Ignoring unrecognized input and continuing with fallback.");
         }
-        return this;  // Allows method chaining
+        return this;  
     }
-
     getResult(): T | undefined {
-        return this.parser.results.length > 0 ? this.parser.results[0] : undefined;
+        return this.parser.results.length > 0 ? this.parser.results[0] : undefined; 
     }
-    
 }
 
-
-// Define lexer
 export const lexers = {
-    simple: moo.compile({
-        WORD: /[a-zA-ZæøåÆØÅ]+/,
-        NUMBER: /[0-9]+/,
-        PUNCTUATION: /[.,!?;:]/,
-        SPECIAL: /[#&%'"¤]/,
-        PARENTHESIS: /[()]/,
-        SPACE: { match: /\s+/, lineBreaks: true },
-        NEWLINE: { match: /\n/, lineBreaks: true },
-        OTHER: { match: /[^\s]+/, error: true },
+    simple: moo.compile({ 
+        WORD: /[a-zA-ZæøåÆØÅ]+/, 
+        NUMBER: /[0-9]+/, 
+        PUNCTUATION: /[.,!?;:]/, 
+        SPECIAL: /[#&%'"¤]/, 
+        PARENTHESIS: /[()]/, 
+        SPACE: { match: /\s+/, lineBreaks: true }, 
+        NEWLINE: { match: /\n/, lineBreaks: true }, 
+        OTHER: { match: /[^\s]+/, error: true }, 
     }),
 };
 
-// Define transformer
 export class StringToTokenTransformer {
     constructor(private lexer: moo.Lexer) {}
 
+    /**
+     * Transforms input text into an array of tokens using the lexer.
+     *
+     * @param {string} text - The text to be tokenized.
+     * @returns {MooToken[]} - An array of generated tokens.
+     */
     transform(text: string): MooToken[] {
-        this.lexer.reset(text);
-        const tokens: MooToken[] = [];
+        this.lexer.reset(text); 
+        const tokens: MooToken[] = []; // Initialize an array to hold the tokens
         let token;
+
+        // Loop through the text and collect tokens
         while (token = this.lexer.next()) {
-            // Skip certain types if they are not relevant to your grammar
+            // Skip certain token types if they are not relevant to your grammar
             if (!token?.type || token.type === 'NUMBER' || token.type === 'PUNCTUATION' || token.type === 'SPACE') {
                 continue; 
             }
-            console.log('Token:', token); // Debugging
-            tokens.push(token);
+            console.log('Token:', token); // Debugging log for each token
+            tokens.push(token); // Add the token to the array
         }
         console.log("Generated tokens:", tokens); // Log generated tokens for debugging
-        return tokens;
+        return tokens; 
     }
-    
 }
 
-// Define renderers
-import mailReplyGrammar from "./mail-reply";
-import { handleIncomingEmail } from "./emailProcessor";
-import { saveToFile } from "./fileService";
-
+// Create an instance of the Renderer with the mail reply grammar
 export const renderers = {
     mail_reply: new Renderer<{ name: string, body: MooToken[] }>(new nearley.Parser(nearley.Grammar.fromCompiled(mailReplyGrammar))),
 };
 
-// EmailParser class
 export class EmailParser {
-    incomingEmail(rawEmailText: string) {
-        throw new Error('Method not implemented.');
-    }
-    private renderer: Renderer<{ name: string, body: MooToken[] }>;
+    private renderer: Renderer<{ name: string, body: MooToken[] }>; 
 
     constructor() {
-        this.renderer = renderers.mail_reply;
+        this.renderer = renderers.mail_reply; 
     }
 
+    /**
+     * Processes an array of tokens and retrieves the parsed result.
+     *
+     * @param {MooToken[]} tokens - The tokens to be processed.
+     */
     public process(tokens: MooToken[]) {
         try {
-            this.renderer.feed(tokens);
-            const result = this.renderer.getResult(); // Retrieve the result
-            console.log("Parsed result:", result);
+            this.renderer.feed(tokens); // Feed tokens into the renderer
+            const result = this.renderer.getResult(); // Retrieve the parsing result
+            console.log("Parsed result:", result); // Log the parsed result
         } catch {
             console.error("Error processing email content. Falling back to cleanAndFormatText.");
-            const fallbackResult = cleanAndFormatText(tokens.map(token => token.value).join(' '));
-            console.log("Fallback result:", fallbackResult);
+            const fallbackResult = cleanAndFormatText(tokens.map(token => token.value).join(' ')); // Fallback to cleaning text on error
+            console.log("Fallback result:", fallbackResult); // Log the fallback result
         }
     }
-    
-    
 }
 
+// Sample email text for testing
 const rawEmailText =  `
 Denne besked er sendt fra Peter Plass Jensen, 31. aug. 2024 13.52
 Hejsa
@@ -126,9 +133,8 @@ Mobil xx xx xx xx
 >
 > # Ordrebekræftelse (Nr. 1413105)
 >
-
 `;
 
-const emailObject = handleIncomingEmail(rawEmailText);
-
-saveToFile('path/to/your/file.json', JSON.stringify(emailObject));
+// Handle the incoming email and save it to a file
+const emailObject = handleIncomingEmail(rawEmailText); 
+saveToFile('path/to/your/file.json', JSON.stringify(emailObject)); 
