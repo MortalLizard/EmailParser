@@ -70,19 +70,19 @@ const grammar: Grammar = {
   Lexer: undefined,
   ParserRules: [
     {
+      name: "start",
+      symbols: ["Mail_Reply"],
+      postprocess: id
+    },
+    {
       name: "Mail_Reply",
-      symbols: [wordOrNumber, whitespace, "body"],
+      symbols: [wordOrNumber, { test: (x: any) => x.type === "SPACE" || x.type === "WORD" }, "body"],
       postprocess: out
     },
     {
       name: "body",
       symbols: [{ test: (x: any) => true }],
       postprocess: (d: any[]) => remove_leading_whitespaces(d),
-    },
-    {
-      name: "start",
-      symbols: ["Mail_Reply"],
-      postprocess: id
     },
     { name: "whitespace", symbols: [{ test: (x: any) => x.type === "SPACE" }], postprocess: id },
     { name: "word", symbols: [{ test: (x: any) => x.type === "WORD" }], postprocess: id },

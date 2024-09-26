@@ -6,45 +6,24 @@ import { cleanAndFormatText } from './formatterService';
 export class Renderer<T = any> {
     constructor(private parser: nearley.Parser) {}
 
-    feed(tokens: MooToken[]) { // Ensure using MooToken type
+    feed(tokens: MooToken[]) {
         try {
-            // Log the tokens being fed to the parser
             console.log("Feeding tokens to parser:", tokens);
-
-            // Feed the array of tokens directly into the parser
-            this.parser.feed(tokens as any); // Cast to 'any' to avoid type issues
+            this.parser.feed(tokens as any);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error.";
             console.error("Error feeding tokens:", message);
-
-            // Check if states is defined before accessing it
-            const states = (this.parser as any).states || []; // Use 'any' to bypass TypeScript check
-
-            // Log the parser state for debugging
-            console.log("Parser state at error:", {
-                results: this.parser.results,
-                expected: states.map((state: any) => ({
-                    expected: state.expected,
-                    position: state.position
-                })),
-                currentPosition: this.parser.current
-            });
-
-            throw new Error(`Failed to feed tokens to parser: ${message}`);
+            console.warn("Ignoring unrecognized input and continuing with fallback.");
         }
-        return this;
+        return this;  // Allows method chaining
     }
 
-    get result() {
-        const results = this.parser.results;
-        if (!results || results.length !== 1) {
-            const message = results.length > 1 ? "Ambiguous parse result." : "No parse results found.";
-            console.warn(message, results);
-            throw new Error(message);
-        }
-        return results[0] as T;
+    getResult(): T | undefined {
+        return this.parser.results.length > 0 ? this.parser.results[0] : undefined;
     }
+    
 }
+
 
 // Define lexer
 export const lexers = {
@@ -60,8 +39,6 @@ export const lexers = {
     }),
 };
 
-// Define transformer
-// Define transformer
 // Define transformer
 export class StringToTokenTransformer {
     constructor(private lexer: moo.Lexer) {}
@@ -84,9 +61,10 @@ export class StringToTokenTransformer {
     
 }
 
-
 // Define renderers
 import mailReplyGrammar from "./mail-reply";
+import { handleIncomingEmail } from "./emailProcessor";
+import { saveToFile } from "./fileService";
 
 export const renderers = {
     mail_reply: new Renderer<{ name: string, body: MooToken[] }>(new nearley.Parser(nearley.Grammar.fromCompiled(mailReplyGrammar))),
@@ -94,20 +72,63 @@ export const renderers = {
 
 // EmailParser class
 export class EmailParser {
+    incomingEmail(rawEmailText: string) {
+        throw new Error('Method not implemented.');
+    }
     private renderer: Renderer<{ name: string, body: MooToken[] }>;
 
     constructor() {
         this.renderer = renderers.mail_reply;
     }
 
-    public process(tokens: MooToken[]) { // Ensure using MooToken type
+    public process(tokens: MooToken[]) {
         try {
-            const result = this.renderer.feed(tokens).result;
+            this.renderer.feed(tokens);
+            const result = this.renderer.getResult(); // Retrieve the result
             console.log("Parsed result:", result);
         } catch {
             console.error("Error processing email content. Falling back to cleanAndFormatText.");
-            const fallbackResult = cleanAndFormatText(tokens.map(token => token.value).join(' ')); // Use token.value
+            const fallbackResult = cleanAndFormatText(tokens.map(token => token.value).join(' '));
             console.log("Fallback result:", fallbackResult);
         }
     }
+    
+    
 }
+
+const rawEmailText =  `
+Denne besked er sendt fra Peter Plass Jensen, 31. aug. 2024 13.52
+Hejsa
+jeg har købt et
+# Sirius Sille Bloklys Genopladelig H12,5 cm, Hvid
+ved jer og det lader ikke rigtig op tror jeg den bliver ikke grøn med kun orange der er et billede af
+
+Mvh *firstname
+
+Den tors. 22. aug. 2024 kl. 10.35 skrev WWW.HJEM.DK ApS :
+> ![WWW.HJEM.DK ApS](https://sw12669.sfstatic.io/upload_dir/pics/NytLogo2.png)
+>
+> # Ordrebekræftelse (Nr. 1413105)
+
+*email@gmail.com
+Mobil xx xx xx xx
+
+> Den mandag. 26. jun. 2024 kl. 14.21 skrev WWW.HJEM.DK ApS :
+> ![WWW.HJEM.DK ApS](https://sw12669.sfstatic.io/upload_dir/pics/NytLogo2.png)
+>
+> # Ordrebekræftelse (Nr. 1413105)
+>
+> Hej *firstname *lastname,
+>
+
+> Den tors. 17. jan. 2024 kl. 10.35 skrev WWW.HJEM.DK ApS :
+> ![WWW.HJEM.DK ApS](https://sw12669.sfstatic.io/upload_dir/pics/NytLogo2.png)
+>
+> # Ordrebekræftelse (Nr. 1413105)
+>
+
+`;
+
+const emailObject = handleIncomingEmail(rawEmailText);
+
+saveToFile('path/to/your/file.json', JSON.stringify(emailObject));

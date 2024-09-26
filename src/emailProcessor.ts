@@ -15,7 +15,7 @@ export const handleIncomingEmail = async (rawEmailText: string) => {
     const filename = `formatted_email_${Date.now()}.txt`;
 
     // Save the formatted text to a .txt file
-    await saveToFile(formattedText, filename); // Ensure this is awaited
+    await saveToFile(formattedText, filename); 
 
     // Send the file to ChatGPT for processing
     await sendToChatGPT(filename);
